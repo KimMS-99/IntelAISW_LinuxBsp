@@ -16,11 +16,11 @@ pi@pi03:/mnt/nfs_ubuntu $ rmmod hello
 
 디바이스 드라이버를 모듈로 만들어 커널에 적재하거나 제거하기 위해 다음과 같은 모듈 유틸리티를 사용할 수 있다.
 
-- insmod : 모듈을 커널에 적재한다.
-- rmmod : 커널에서 모듈을 제거한다.
-- lsmod : 커널에 적재된 모듈 목록을 보여준다.
-- depmod : 모듈간 의존성 정보를 생성한다.
-- modprobe : 모듈을 커널에 적재하거나 제거한다.
+- `insmod` : 모듈을 커널에 적재한다.
+- `rmmod` : 커널에서 모듈을 제거한다.
+- `lsmod` : 커널에 적재된 모듈 목록을 보여준다.
+- `depmod` : 모듈간 의존성 정보를 생성한다.
+- `modprobe` : 모듈을 커널에 적재하거나 제거한다.
 
 ### - insmod
 
@@ -66,3 +66,25 @@ parport_pc  20104   0
 parport  40768    1     parport_pc
 ```
 첫번째 열은 등록된 모듈명을 나타낸다. 두번째 열은 모듈이 커널에서 차지하고 있는 기억 공간의 크기를 나타낸다. 세번째 열은 사용중인지를 나타낸다. 네번째 열은 해당 모듈을 참조하고 있는 모듈명을 나타낸다. 
+
+## ⦁ 모듈 초기화 함수와 제거 함수 지정
+모듈은 컴파일 결과로 생성된 객체 파일이므로 모듈 유틸리티를 이용해 커널에 적재하고 링크하는 단계가 필요하다.
+
+**module_init** 은 커널에 모듈을 적재할 때 커널이 호출하는 함수를 지정하는 매크로고, **module_exit** 는 커널에서 모듈을 제거할 때 호출하는 함수를 지정하는 매크로다.
+
+## ⦁ 라이선스 등록
+다음과 같은 형식으로 모듈의 라이선스를 표현해야 하는데
+```c
+MODULE_LICENSE("Daul BSD/GPL");
+```
+**MODULE_LICENSE** 로 사용할 수 있는 문자열과 그 의미는 아래 표와 같은데 특별히 기업 비밀을 보장해야 할 상황이 아니라면 "Dual BSD/GPL"을 사용하면 된다. 생략하거나 "Proprietary" 를 사용하면 커널 내부의 몇몇 API에 접근할 수 없지만, 크게 문제가 되지는 않는다.
+- `MODULE_LICENSE`에 사용하는 문자열과 의미
+
+| 라이선스 | 풀어쓰기
+|:---:|:---:|
+| GPL | GNU Public License v2 or later
+| GPL v2 | GNU Public License v2
+| GPL and additional rights | GNU Public License v2 rights and more
+| Dual BSD/GPL | GNU Public License v2 or BSD license choice
+| DUAL MPL/GPL | GNU Public License v2 or Mozilla license choice
+| Proprieatry | Non free products
