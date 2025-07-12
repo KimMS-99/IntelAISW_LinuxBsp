@@ -13,5 +13,5 @@
 
 ## 함수
 
-+ [mknod()](../mknod_perror(p87)/)
-+ [perror()](../mknod_perror(p87)/)
++ [mknod()](../p87/)
++ [perror()](../p87/)
