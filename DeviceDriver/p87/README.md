@@ -1,1 +1,0 @@
-[mknod()](../docs/Markdown/function.md#디바이스-파일-생성--mknod함수)함수와 [perror()](../docs/Markdown/function.md#에러-처리--perror-함수)함수 사용 예제
