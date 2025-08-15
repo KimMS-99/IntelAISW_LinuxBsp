@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: GPL-2.0
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/fs.h>
@@ -34,11 +33,11 @@
 #define UART_MIS 0x40
 #define UART_ICR 0x44
 
-/* FR 비트 */
+// FR 비트
 #define UART_FR_TXFF (1 << 5) // TX FIFO Full
 #define UART_FR_RXFE (1 << 4) // RX FIFO Empty
 
-/* IMSC/MIS/ICR 비트 */
+// IMSC/MIS/ICR 비트
 #define RXIM (1 << 4)  // RX interrupt
 #define TXIM (1 << 5)  // TX interrupt
 #define RTIM (1 << 6)  // RX timeout
@@ -49,7 +48,7 @@
 #define RTIC (1 << 6)
 #define OEIC (1 << 10)
 
-/* 링버퍼 */
+// 링버퍼
 #define RB_SIZE 2048
 struct ringbuf
 {
@@ -72,10 +71,10 @@ static inline char rb_get(struct ringbuf *r)
     return c;
 }
 
-/* MMIO 베이스 */
+// MMIO 베이스
 static void __iomem *uart3_base;
 
-/* 문자 디바이스 자료구조 */
+// 문자 디바이스 자료구조
 static struct cdev uart3_cdev;
 static dev_t devno;
 static struct class *uart3_class;
@@ -83,7 +82,7 @@ static int irq = -1; // 모듈 파라미터로 강제 지정 가능
 module_param(irq, int, 0444);
 MODULE_PARM_DESC(irq, "Override UART3 IRQ number (if -1, try from DT)");
 
-/* 동기화/대기 */
+// 동기화/대기
 static spinlock_t uart_lock; // ISR <-> read/write 보호
 static wait_queue_head_t rx_wq;
 static wait_queue_head_t tx_wq;
@@ -95,7 +94,7 @@ static struct
     int cookie;
 } irq_cookie;
 
-/* 선택: /dev 권한 0666 */
+// 선택: /dev 권한 0666
 static char *uart3_devnode(const struct device *dev, umode_t *mode)
 {
     if (mode)
@@ -103,7 +102,7 @@ static char *uart3_devnode(const struct device *dev, umode_t *mode)
     return NULL;
 }
 
-/* DT에서 UART3 IRQ 구하기: /soc/serial@fe201600 노드 기준 */
+// DT에서 UART3 IRQ 구하기: /soc/serial@fe201600 노드 기준
 static int get_uart3_irq_from_dt(void)
 {
     struct device_node *np;
@@ -125,7 +124,6 @@ static int get_uart3_irq_from_dt(void)
     return ret;
 }
 
-/* ───────────── ISR ───────────── */
 static irqreturn_t uart3_irq_handler(int _irq, void *dev_id)
 {
     u32 mis = readl(uart3_base + UART_MIS);
@@ -136,7 +134,7 @@ static irqreturn_t uart3_irq_handler(int _irq, void *dev_id)
     unsigned long flags;
     spin_lock_irqsave(&uart_lock, flags);
 
-    /* RX: RXIM/RTIM/OEIM → FIFO 비울 만큼 싹 읽어 링버퍼에 push */
+    // RX: RXIM/RTIM/OEIM → FIFO 비울 만큼 싹 읽어 링버퍼에 push
     if (mis & (RXIM | RTIM | OEIM))
     {
         while (!(readl(uart3_base + UART_FR) & UART_FR_RXFE))
@@ -152,7 +150,7 @@ static irqreturn_t uart3_irq_handler(int _irq, void *dev_id)
         wake_up_interruptible(&rx_wq);
     }
 
-    /* TX: TXIM → FIFO 여유만큼 tx_rb에서 채워 넣기 */
+    // TX: TXIM → FIFO 여유만큼 tx_rb에서 채워 넣기
     if (mis & TXIM)
     {
         while (!(readl(uart3_base + UART_FR) & UART_FR_TXFF))
@@ -176,37 +174,35 @@ static irqreturn_t uart3_irq_handler(int _irq, void *dev_id)
     return IRQ_HANDLED;
 }
 
-/* ───────────── fops 구현 ───────────── */
-
 static int uart3_open(struct inode *inode, struct file *file)
 {
     unsigned long flags; // <-- FIX: 선언 추가
 
-    /* 0) 일단 비활성 + 인터럽트 마스크/클리어 */
+    // 0) 일단 비활성 + 인터럽트 마스크/클리어
     writel(0x0, uart3_base + UART_CR);    // UART Disable
     writel(0x0, uart3_base + UART_IMSC);  // 모든 UART IRQ 마스크
     writel(0x7FF, uart3_base + UART_ICR); // pending IRQ 클리어
 
-    /* 1) HW RX FIFO 드레인 */
+    // 1) HW RX FIFO 드레인
     while (!(readl(uart3_base + UART_FR) & UART_FR_RXFE))
         (void)readl(uart3_base + UART_DR);
 
-    /* 2) SW 링버퍼 리셋 (ISR/동시 접근 대비) */
+    // 2) SW 링버퍼 리셋 (ISR/동시 접근 대비)
     spin_lock_irqsave(&uart_lock, flags);
     rx_rb.head = rx_rb.tail = 0;
     tx_rb.head = tx_rb.tail = 0;
     spin_unlock_irqrestore(&uart_lock, flags);
 
-    /* 3) 보레이트/라인 설정 */
+    // 3) 보레이트/라인 설정
     writel(26, uart3_base + UART_IBRD); // 115200 @ 48MHz (예시)
     writel(3, uart3_base + UART_FBRD);
     writel((1 << 4) | (3 << 5), uart3_base + UART_LCRH); // FIFO + 8N1
     writel(0, uart3_base + UART_IFLS);                   // 기본 임계
 
-    /* 4) 수신 관련 인터럽트 언마스크 (TXIM은 write()에서 켬) */
+    // 4) 수신 관련 인터럽트 언마스크 (TXIM은 write()에서 켬)
     writel(RXIM | RTIM | OEIM, uart3_base + UART_IMSC);
 
-    /* 5) UART Enable */
+    // 5) UART Enable
     writel((1 << 0) | (1 << 8) | (1 << 9), uart3_base + UART_CR); // UARTEN | TXE | RXE
 
     return 0;
@@ -214,7 +210,7 @@ static int uart3_open(struct inode *inode, struct file *file)
 
 static int uart3_release(struct inode *inode, struct file *file)
 {
-    /* 인터럽트 모두 끄기 */
+    // 인터럽트 모두 끄기
     writel(0, uart3_base + UART_IMSC);
     return 0;
 }
@@ -271,7 +267,7 @@ static ssize_t uart3_write(struct file *file, const char __user *ubuf, size_t co
         if (get_user(c, ubuf + sent))
             return sent ? (ssize_t)sent : -EFAULT;
 
-        /* 우선 HW FIFO 여유면 바로 씀(지연 최소화) */
+        // 우선 HW FIFO 여유면 바로 씀(지연 최소화)
         if (!(readl(uart3_base + UART_FR) & UART_FR_TXFF))
         {
             writeb(c, uart3_base + UART_DR);
@@ -279,14 +275,14 @@ static ssize_t uart3_write(struct file *file, const char __user *ubuf, size_t co
             continue;
         }
 
-        /* 아니면 소프트 TX 링버퍼에 push */
+        // 아니면 소프트 TX 링버퍼에 push
         unsigned long flags;
         spin_lock_irqsave(&uart_lock, flags);
         if (!rb_full(&tx_rb))
         {
             rb_put(&tx_rb, c);
             sent++;
-            /* TX 인터럽트 ON (송신 시작 트리거) */
+            // TX 인터럽트 ON (송신 시작 트리거)
             {
                 u32 im = readl(uart3_base + UART_IMSC);
                 if (!(im & TXIM))
@@ -297,7 +293,7 @@ static ssize_t uart3_write(struct file *file, const char __user *ubuf, size_t co
         else
         {
             spin_unlock_irqrestore(&uart_lock, flags);
-            /* 꽉 찼으면: 논블록이면 즉시 반환, 블록이면 여유를 기다림 */
+            // 꽉 찼으면: 논블록이면 즉시 반환, 블록이면 여유를 기다림
             if (file->f_flags & O_NONBLOCK)
                 return sent ? (ssize_t)sent : -EAGAIN;
 
@@ -309,7 +305,7 @@ static ssize_t uart3_write(struct file *file, const char __user *ubuf, size_t co
     return sent;
 }
 
-/* poll/select 지원 */
+// poll/select 지원
 static __poll_t uart3_poll(struct file *file, poll_table *wait)
 {
     __poll_t mask = 0;
@@ -337,25 +333,23 @@ static const struct file_operations fops = {
     .poll = uart3_poll,
 };
 
-/* ───────────── 모듈 로드/언로드 ───────────── */
-
 static int __init uart3_init(void)
 {
     int ret;
 
-    /* dev_t 할당 (동적 메이저) */
+    // dev_t 할당 (동적 메이저)
     ret = alloc_chrdev_region(&devno, 0, 1, DEVICE_NAME);
     if (ret)
         return ret;
 
-    /* cdev 등록 */
+    // cdev 등록
     cdev_init(&uart3_cdev, &fops);
     uart3_cdev.owner = THIS_MODULE;
     ret = cdev_add(&uart3_cdev, devno, 1);
     if (ret)
         goto err_cdev;
 
-    /* class/device 생성 → /dev/uart3_raw 자동 생성 */
+    // class/device 생성 → /dev/uart3_raw 자동 생성
     uart3_class = class_create(DEVICE_NAME);
     if (IS_ERR(uart3_class))
     {
@@ -370,7 +364,7 @@ static int __init uart3_init(void)
         goto err_dev;
     }
 
-    /* MMIO 매핑 */
+    // MMIO 매핑
     uart3_base = ioremap(UART3_BASE_PHYS, UART3_REG_SIZE);
     if (!uart3_base)
     {
@@ -378,14 +372,14 @@ static int __init uart3_init(void)
         goto err_map;
     }
 
-    /* 동기화 객체 초기화 */
+    // 동기화 객체 초기화
     spin_lock_init(&uart_lock);
     init_waitqueue_head(&rx_wq);
     init_waitqueue_head(&tx_wq);
     rx_rb.head = rx_rb.tail = 0;
     tx_rb.head = tx_rb.tail = 0;
 
-    /* IRQ 번호 결정 (모듈 파라미터 우선, 아니면 DT에서 조회) */
+    // IRQ 번호 결정 (모듈 파라미터 우선, 아니면 DT에서 조회)
     if (irq < 0)
     {
         irq = get_uart3_irq_from_dt();
@@ -397,7 +391,7 @@ static int __init uart3_init(void)
         }
     }
 
-    /* IRQ 등록 */
+    // IRQ 등록
     ret = request_irq(irq, uart3_irq_handler, IRQF_SHARED, DEVICE_NAME, &irq_cookie);
     if (ret)
     {
@@ -424,7 +418,7 @@ err_cdev:
 
 static void __exit uart3_exit(void)
 {
-    /* 사용자 접근 경로부터 차단 */
+    // 사용자 접근 경로부터 차단
     writel(0, uart3_base + UART_IMSC); // 모든 UART IRQ 끄기
     if (irq >= 0)
         free_irq(irq, &irq_cookie);

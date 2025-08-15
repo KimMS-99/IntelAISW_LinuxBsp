@@ -1,4 +1,3 @@
-// O_NONBLOCK + poll() 라인 기반 에코 앱 (정상 동작 버전)
 #include <stdio.h>
 #include <fcntl.h>
 #include <unistd.h>

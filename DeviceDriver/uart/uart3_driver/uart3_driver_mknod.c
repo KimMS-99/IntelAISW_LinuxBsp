@@ -25,7 +25,7 @@ static void __iomem *uart3_base; // 커널에서 쓸 수 있는 가상주소
 #define UART_FR_RXFE (1 << 4)
 static int uart3_open(struct inode *inode, struct file *file)
 {
-    /* HW RX FIFO 드레인: 비어 있을 때까지 읽어서 버리기 */
+    // HW RX FIFO 드레인: 비어 있을 때까지 읽어서 버리기
     while (!(readl(uart3_base + UART_FR) & UART_FR_RXFE))
         (void)readl(uart3_base + UART_DR);
 

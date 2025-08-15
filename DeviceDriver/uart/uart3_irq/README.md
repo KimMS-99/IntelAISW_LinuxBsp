@@ -1,4 +1,5 @@
-라즈베리 파이와 STM32를 UART로 연결해 에코백 테스트를 수행하는 예제입니다.
+라즈베리 파이와 STM32를 UART로 연결해 에코(echo) 테스트를 수행하는 예제입니다.<br>
+오류 발생 시 자원 해제는 [Linux Kernel Coding Style](https://www.kernel.org/doc/html/v4.10/process/coding-style.html)을 참고하여, 모듈 초기화(init) 함수의 에러 처리 경로에서 `goto` 패턴으로 구현했습니다.
 
 ## stm32 주요 코드
 
