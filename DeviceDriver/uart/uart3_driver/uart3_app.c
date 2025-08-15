@@ -76,7 +76,7 @@ int main()
                         break;
 
                     // 블로킹 read라면 여기서 계속 더 들어올 수 있음.
-                    // 논블록이라면 n>0인데 개행 못찾은 경우, 다음 select()로 넘어가도 됨.
+                    // 논블록이라면 bytes_read>0인데 개행 못찾은 경우, 다음 select()로 넘어가도 됨.
                     continue;
                 }
 
